@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trợ lý Tài liệu (HTML)</title>
+    <!-- Tích hợp Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Thêm một vài style tùy chỉnh nếu cần */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar cho đẹp hơn */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+    <!-- Tích hợp Google Fonts -->
+     <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+
+    <div class="flex h-screen">
+        <!-- Cột bên trái: Quản lý tài liệu -->
+        <aside class="w-1/3 xl:w-1/4 h-full bg-white border-r border-gray-200 flex flex-col p-6">
+            <header class="mb-6">
+                <h1 class="text-2xl font-bold text-gray-800">Trợ lý Tài liệu</h1>
+                <p class="text-sm text-gray-500">Tải lên và hỏi đáp về tài liệu của bạn.</p>
+            </header>
+
+            <!-- Khu vực tải file -->
+            <div id="upload-zone" class="relative border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer hover:border-sky-500 hover:bg-sky-50 transition-all duration-300">
+                <div class="flex flex-col items-center text-gray-500 pointer-events-none">
+                    <!-- Icon UploadCloud -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                    <p class="font-semibold">Kéo thả hoặc nhấn để tải file</p>
+                    <p class="text-xs mt-1">Hỗ trợ PDF, PNG, JPG, PPTX...</p>
+                </div>
+                <input type="file" id="file-input" class="hidden" multiple />
+            </div>
+
+            <!-- Danh sách các file đã tải lên -->
+            <div class="mt-6 flex-grow overflow-y-auto custom-scrollbar">
+                <h2 class="text-sm font-semibold text-gray-600 mb-3">TÀI LIỆU ĐÃ HỌC</h2>
+                <div id="file-list">
+                    <!-- File pills sẽ được thêm vào đây bằng JavaScript -->
+                    <div id="file-list-placeholder" class="text-center text-sm text-gray-400 mt-8">
+                        <p>Chưa có tài liệu nào.</p>
+                        <p>Hãy tải lên để bắt đầu.</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Cột bên phải: Giao diện Chat -->
+        <main class="w-2/3 xl:w-3/4 h-full flex flex-col bg-slate-50">
+            <!-- Khung hội thoại -->
+            <div id="chat-container" class="flex-grow p-6 overflow-y-auto custom-scrollbar">
+                <!-- Tin nhắn sẽ được thêm vào đây bằng JavaScript -->
+            </div>
+
+            <!-- Khung nhập liệu -->
+            <div class="p-6 bg-white border-t border-gray-200">
+                <div class="relative">
+                    <input type="text" id="message-input" placeholder="Nhập câu hỏi của bạn ở đây..." class="w-full pl-4 pr-12 py-3 bg-gray-100 rounded-full border-2 border-transparent focus:outline-none focus:border-sky-500 transition-all duration-300" />
+                    <button id="send-button" class="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-sky-500 text-white rounded-full disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-sky-600 transition-all duration-300">
+                        <!-- Icon Send -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- DOM Element Selections ---
+        const uploadZone = document.getElementById('upload-zone');
+        const fileInput = document.getElementById('file-input');
+        const fileListContainer = document.getElementById('file-list');
+        const fileListPlaceholder = document.getElementById('file-list-placeholder');
+        const chatContainer = document.getElementById('chat-container');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+
+        // --- State Management ---
+        let files = [];
+        let messages = [
+            { id: 1, text: 'Chào bạn! Tôi là trợ lý ảo. Hãy tải tài liệu lên và hỏi tôi bất cứ điều gì về chúng nhé!', sender: 'bot' }
+        ];
+        let isLoading = false;
+
+        // --- Icon Templates (SVG) ---
+        const icons = {
+            pdf: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
+            image: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`,
+            default: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
+            check: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+            bot: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect x="4" y="12" width="16" height="8" rx="2"/><path d="M2 12h20"/><path d="M12 12V8"/></svg>`,
+            user: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`
+        };
+
+        // --- Rendering Functions ---
+
+        function renderFiles() {
+            if (files.length === 0) {
+                fileListPlaceholder.style.display = 'block';
+                return;
+            }
+            fileListPlaceholder.style.display = 'none';
+            fileListContainer.innerHTML = '<h2 class="text-sm font-semibold text-gray-600 mb-3">TÀI LIỆU ĐÃ HỌC</h2>'; // Reset and re-add header
+            
+            files.forEach(file => {
+                let icon = icons.default;
+                if (file.type.includes('pdf')) icon = icons.pdf;
+                if (file.type.includes('image')) icon = icons.image;
+
+                const filePill = document.createElement('div');
+                filePill.className = 'flex items-center justify-between bg-white p-2 rounded-lg shadow-sm border border-gray-200 mb-2';
+                filePill.innerHTML = `
+                    <div class="flex items-center gap-2 overflow-hidden">
+                        ${icon}
+                        <span class="text-sm text-gray-700 truncate" title="${file.name}">${file.name}</span>
+                    </div>
+                    <div class="flex items-center gap-1 text-green-600">
+                        ${icons.check}
+                        <span class="text-xs font-medium">Đã xử lý</span>
+                    </div>
+                `;
+                fileListContainer.appendChild(filePill);
+            });
+        }
+
+        function renderMessages() {
+            chatContainer.innerHTML = ''; // Clear previous messages
+            messages.forEach(message => {
+                const isBot = message.sender === 'bot';
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `flex items-start gap-3 my-4 ${isBot ? 'justify-start' : 'justify-end'}`;
+                
+                const iconDiv = `
+                    <div class="flex-shrink-0 w-8 h-8 ${isBot ? 'bg-sky-500' : 'bg-gray-700'} rounded-full flex items-center justify-center text-white">
+                        ${isBot ? icons.bot : icons.user}
+                    </div>
+                `;
+                
+                const textDiv = `
+                    <div class="px-4 py-3 rounded-xl max-w-lg ${isBot ? 'bg-gray-100 text-gray-800 rounded-tl-none' : 'bg-sky-500 text-white rounded-br-none'}">
+                        <p class="text-sm">${message.text}</p>
+                    </div>
+                `;
+
+                messageDiv.innerHTML = isBot ? iconDiv + textDiv : textDiv + iconDiv;
+                chatContainer.appendChild(messageDiv);
+            });
+
+            if (isLoading) {
+                const loadingIndicator = document.createElement('div');
+                loadingIndicator.className = 'flex items-start gap-3 my-4 justify-start';
+                loadingIndicator.innerHTML = `
+                    <div class="flex-shrink-0 w-8 h-8 bg-sky-500 rounded-full flex items-center justify-center text-white">
+                        ${icons.bot}
+                    </div>
+                    <div class="px-4 py-3 rounded-xl bg-gray-100 text-gray-500 rounded-tl-none">
+                        <div class="flex items-center gap-2">
+                            <span class="h-2 w-2 bg-sky-500 rounded-full animate-pulse delay-75"></span>
+                            <span class="h-2 w-2 bg-sky-500 rounded-full animate-pulse delay-150"></span>
+                            <span class="h-2 w-2 bg-sky-500 rounded-full animate-pulse delay-300"></span>
+                        </div>
+                    </div>
+                `;
+                chatContainer.appendChild(loadingIndicator);
+            }
+            
+            // Auto-scroll to the bottom
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // --- Event Handlers ---
+
+        function handleFileUpload(event) {
+            const uploadedFiles = Array.from(event.target.files);
+            if (uploadedFiles.length > 0) {
+                files = [...files, ...uploadedFiles];
+                renderFiles();
+            }
+        }
+
+        function handleSendMessage() {
+            const trimmedInput = messageInput.value.trim();
+            if (trimmedInput === '' || isLoading) return;
+
+            // Add user message
+            messages.push({ id: Date.now(), text: trimmedInput, sender: 'user' });
+            messageInput.value = '';
+            isLoading = true;
+            renderMessages();
+            toggleInput(false);
+
+            // Simulate RAG system response
+            setTimeout(() => {
+                let botResponseText = "Tôi không tìm thấy thông tin này trong các tài liệu đã được cung cấp.";
+
+                const lowerCaseInput = trimmedInput.toLowerCase();
+                if (lowerCaseInput.includes('ngày nghỉ phép') || lowerCaseInput.includes('nghỉ phép')) {
+                    botResponseText = "Theo tài liệu 'Nội quy lao động.pdf', nhân viên chính thức được hưởng 15 ngày nghỉ phép có lương mỗi năm.";
+                } else if (lowerCaseInput.includes('giờ làm việc') || lowerCaseInput.includes('mấy giờ')) {
+                    botResponseText = "Theo tài liệu 'Nội quy lao động.pdf', giờ làm việc bắt đầu từ 8:00 sáng đến 17:00 chiều.";
+                } else if (lowerCaseInput.includes('báo cáo doanh thu')) {
+                    botResponseText = "Trong file 'BaoCaoQ2.pptx', doanh thu Quý 2 tăng 15% so với Quý 1, đạt 5 tỷ đồng.";
+                }
+
+                messages.push({ id: Date.now() + 1, text: botResponseText, sender: 'bot' });
+                isLoading = false;
+                renderMessages();
+                toggleInput(true);
+            }, 1500);
+        }
+
+        function toggleInput(enabled) {
+            messageInput.disabled = !enabled;
+            sendButton.disabled = !enabled;
+        }
+        
+        // --- Initial Setup ---
+        
+        // Add event listeners
+        uploadZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleFileUpload);
+        sendButton.addEventListener('click', handleSendMessage);
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                handleSendMessage();
+            }
+        });
+        
+        // Initial render
+        renderMessages();
+        renderFiles();
+    </script>
+
+</body>
+</html>
